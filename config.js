@@ -6,28 +6,39 @@
 var fs = require("fs");
 var cp = require("child_process");
 var dns = require("dns");
+var os = require('os');
 
 var Class = require("pixl-class");
 var Args = require("pixl-args");
+var Tools = require("pixl-tools");
 
-module.exports = Class.create({
+var Config = module.exports = Class.create({
 	
-	configFile: "conf/config.json",
+	configFile: "",
 	config: null,
 	args: null,
+	subs: null,
 	
 	watch: false,
 	watcher: null,
 	hostname: '',
 	ip: '',
 	
-	__construct: function(file, watch) {
+	__construct: function(thingy, watch, isa_sub) {
 		// class constructor
-		if (file) this.configFile = file;
+		if (thingy) {
+			if (typeof(thingy) == 'string') this.configFile = thingy;
+			else {
+				this.config = thingy;
+				this.configFile = "";
+			}
+		}
 		if (watch) this.watch = watch;
 		
 		if (this.configFile) this.load();
-		else this.config = {};
+		else if (!isa_sub) this.loadArgs();
+		
+		this.subs = {};
 	},
 	
 	load: function() {
@@ -43,12 +54,18 @@ module.exports = Class.create({
 		}
 		
 		// cmdline args (--key value)
+		this.loadArgs();
+		
+		// watch file for changes
+		this.watchFile();
+	},
+	
+	loadArgs: function() {
+		// merge in cmdline args (--key value)
 		var args = this.args = new Args();
 		for (var key in args.get()) {
 			this.config[key] = args.get(key);
 		}
-		
-		this.watchFile();
 	},
 	
 	watchFile: function() {
@@ -91,6 +108,9 @@ module.exports = Class.create({
 					// emit event for listeners
 					self.emit('reload');
 					
+					// refresh subs
+					self.refreshSubs();
+					
 					// reinstate fs.watch
 					self.watchFile();
 				} ); // fs.readFile
@@ -111,6 +131,26 @@ module.exports = Class.create({
 		if (this.args) this.args.set(key, value);
 	},
 	
+	getSub: function(key) {
+		// get cloned Config object pointed at sub-key
+		var sub = new Config( this.get(key) || {}, null, true );
+		
+		// keep track so we can refresh on reload
+		this.subs[key] = sub;
+		
+		return sub;
+	},
+	
+	refreshSubs: function() {
+		// refresh sub key objects on a reload
+		for (var key in this.subs) {
+			var sub = this.subs[key];
+			sub.config = this.get(key) || {};
+			sub.emit('reload');
+			sub.refreshSubs();
+		}
+	},
+	
 	getEnv: function(callback) {
 		// determine environment (hostname and ip) async
 		var self = this;
@@ -126,17 +166,25 @@ module.exports = Class.create({
 	
 	getHostname: function(callback) {
 		// determine server hostname
-		this.hostname = process.env['HOSTNAME'] || process.env['HOST'] || '';
+		this.hostname = (process.env['HOSTNAME'] || process.env['HOST'] || '').toLowerCase();
 		if (this.hostname) {
 			// well that was easy
 			callback();
 			return;
 		}
 		
-		// sigh, the hard way
+		// try the OS module
+		this.hostname = os.hostname().toLowerCase();
+		if (this.hostname) {
+			// well that was easy
+			callback();
+			return;
+		}
+		
+		// sigh, the hard way (exec hostname binary)
 		var self = this;
 		child = cp.execFile('/bin/hostname', function (error, stdout, stderr) {
-			self.hostname = stdout.toString().trim();
+			self.hostname = stdout.toString().trim().toLowerCase();
 			if (!self.hostname) {
 				callback( new Error("Failed to determine server hostname via /bin/hostname") );
 			}
@@ -148,6 +196,22 @@ module.exports = Class.create({
 		// determine server ip address
 		var self = this;
 		
+		// try OS networkInterfaces() first
+		// find the first external IPv4 address
+		var ifaces = os.networkInterfaces();
+		var addrs = [];
+		for (var key in ifaces) {
+			addrs = addrs.concat( addrs, ifaces[key] );
+		}
+		var addr = Tools.findObject( addrs, { family: 'IPv4', internal: false } );
+		if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+			// well that was easy
+			this.ip = addr.address;
+			callback();
+			return;
+		}
+		
+		// sigh, the hard way (DNS resolve the server hostname)
 		dns.resolve4(this.hostname, function (err, addresses) {
 			// if (err) callback(err);
 			self.ip = addresses ? addresses[0] : '127.0.0.1';

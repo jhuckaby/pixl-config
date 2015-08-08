@@ -76,7 +76,7 @@ If there is an error reloading the configuration, an `error` event is emitted (n
 
 ## Server Environment
 
-The library also provides a utility method for determining the server's hostname and IP address (IPv4).  These things require asynchronous operations, so you must specify a callback function.  Upon completion, the hostname will be accessible via `config.hostname` and the IP address in `config.ip` (IPv4 dot-delimited string).  Example:
+The library also provides a utility method for determining the server's hostname and IP address (IPv4).  These things may require asynchronous operations, so you must specify a callback function.  Upon completion, the hostname will be accessible via `config.hostname` and the IP address in `config.ip` (IPv4 dot-delimited string).  Example:
 
 ```javascript
 	config.getEnv( function() {

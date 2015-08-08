@@ -1,6 +1,6 @@
 {
 	"name": "pixl-config",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "A simple JSON configuration loader.",
 	"author": "Joseph Huckaby <jhuckaby@gmail.com>",
 	"homepage": "https://github.com/jhuckaby/pixl-config",
@@ -19,9 +19,10 @@
 	],
 	"dependencies": {
 		"pixl-class": ">=1.0.0",
-		"pixl-args": ">=1.0.0"
+		"pixl-args": ">=1.0.0",
+		"pixl-tools": ">=1.0.0"
 	},
-	"devDepenendcies": {
+	"devDependencies": {
 		
 	}
 }
