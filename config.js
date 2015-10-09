@@ -79,7 +79,7 @@ var Config = module.exports = Class.create({
 			this.watcher = fs.watch( this.configFile, opts, function() {
 				// file has changed on disk, reload it async
 				fs.readFile( self.configFile, { encoding: 'utf8' }, function(err, data) {
-					// fs read complet
+					// fs read complete
 					if (err) {
 						self.emit('error', "Failed to reload config file: " + self.configFile + ": " + err);
 						self.watchFile();
