@@ -76,7 +76,7 @@ var Config = module.exports = Class.create({
 			// persistent means process cannot exit while watcher is live -- set to false
 			var opts = { persistent: false, recursive: false };
 			
-			this.watcher = fs.watch( this.configFile, opts, function() {
+			this.watcher = fs.watch( this.configFile, opts, function(event_type, filename) {
 				// file has changed on disk, reload it async
 				fs.readFile( self.configFile, { encoding: 'utf8' }, function(err, data) {
 					// fs read complete
@@ -111,7 +111,10 @@ var Config = module.exports = Class.create({
 					// refresh subs
 					self.refreshSubs();
 					
-					// reinstate fs.watch
+					// cleanup (prevents leak)
+					self.watcher.close();
+					
+					// reinstate fs.watch (required because INODE changes if file was atomically written)
 					self.watchFile();
 				} ); // fs.readFile
 			} ); // fs.watch
