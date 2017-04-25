@@ -200,15 +200,27 @@ var Config = module.exports = Class.create({
 		var self = this;
 		
 		// try OS networkInterfaces() first
-		// find the first external IPv4 address
+		// find the first external IPv4 address that doesn't match 169.254.
 		var ifaces = os.networkInterfaces();
 		var addrs = [];
 		for (var key in ifaces) {
 			addrs = addrs.concat( addrs, ifaces[key] );
 		}
-		var addr = Tools.findObject( addrs, { family: 'IPv4', internal: false } );
+		
+		var iaddrs = Tools.findObjects( addrs, { family: 'IPv4', internal: false } );
+		for (var idx = 0, len = iaddrs.length; idx < len; idx++) {
+			var addr = iaddrs[idx];
+			if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/) && !addr.address.match(/^169\.254\./)) {
+				// well that was easy
+				this.ip = addr.address;
+				callback();
+				return;
+			}
+		}
+		
+		var addr = iaddrs[0];
 		if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/)) {
-			// well that was easy
+			// this will allow 169.254. to be chosen only after all other non-internal IPv4s are considered
 			this.ip = addr.address;
 			callback();
 			return;
