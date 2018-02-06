@@ -18,9 +18,9 @@ var Config = module.exports = Class.create({
 	config: null,
 	args: null,
 	subs: null,
-	
-	watch: false,
-	watcher: null,
+	mod: 0,
+	timer: null,
+	freq: 10 * 1000,
 	hostname: '',
 	ip: '',
 	
@@ -33,18 +33,26 @@ var Config = module.exports = Class.create({
 				this.configFile = "";
 			}
 		}
-		if (watch) this.watch = watch;
 		
 		if (this.configFile) this.load();
 		else if (!isa_sub) this.loadArgs();
 		
 		this.subs = {};
+		
+		if (watch && !isa_sub) {
+			if (typeof(watch) == 'number') this.freq = watch;
+			if (this.config.check_config_freq_ms) this.freq = this.config.check_config_freq_ms;
+			this.monitor();
+		}
 	},
 	
 	load: function() {
 		// load config and merge in cmdline
 		var self = this;
 		this.config = {};
+		
+		var stats = fs.statSync( this.configFile );
+		this.mod = (stats && stats.mtime) ? stats.mtime.getTime() : 0;
 		
 		var config = JSON.parse( 
 			fs.readFileSync( this.configFile, { encoding: 'utf8' } ) 
@@ -55,9 +63,6 @@ var Config = module.exports = Class.create({
 		
 		// cmdline args (--key value)
 		this.loadArgs();
-		
-		// watch file for changes
-		this.watchFile();
 	},
 	
 	loadArgs: function() {
@@ -68,21 +73,32 @@ var Config = module.exports = Class.create({
 		}
 	},
 	
-	watchFile: function() {
-		// setup watcher for live changes
+	monitor: function() {
+		// start monitoring file for changes
+		this.timer = setInterval( this.check.bind(this), this.freq );
+	},
+	
+	stop: function() {
+		// stop monitoring file
+		clearTimeout( this.timer );
+	},
+	
+	check: function() {
+		// check file for changes, reload if necessary
 		var self = this;
 		
-		if (this.watch) {
-			// persistent means process cannot exit while watcher is live -- set to false
-			var opts = { persistent: false, recursive: false };
+		fs.stat( this.configFile, function(err, stats) {
+			// ignore errors here due to possible race conditions
+			var mod = (stats && stats.mtime) ? stats.mtime.getTime() : 0;
 			
-			this.watcher = fs.watch( this.configFile, opts, function(event_type, filename) {
+			if (mod && (mod != self.mod)) {
 				// file has changed on disk, reload it async
+				self.mod = mod;
+				
 				fs.readFile( self.configFile, { encoding: 'utf8' }, function(err, data) {
 					// fs read complete
 					if (err) {
 						self.emit('error', "Failed to reload config file: " + self.configFile + ": " + err);
-						self.watchFile();
 						return;
 					}
 					
@@ -93,7 +109,6 @@ var Config = module.exports = Class.create({
 					}
 					catch (err) {
 						self.emit('error', "Failed to parse config file: " + self.configFile + ": " + err);
-						self.watchFile();
 						return;
 					}
 					
@@ -111,14 +126,9 @@ var Config = module.exports = Class.create({
 					// refresh subs
 					self.refreshSubs();
 					
-					// cleanup (prevents leak)
-					self.watcher.close();
-					
-					// reinstate fs.watch (required because INODE changes if file was atomically written)
-					self.watchFile();
 				} ); // fs.readFile
-			} ); // fs.watch
-		} // watch
+			} // mod changed
+		} ); // fs.stat
 	},
 	
 	get: function(key) {
