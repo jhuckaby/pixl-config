@@ -214,7 +214,9 @@ var Config = module.exports = Class.create({
 		var ifaces = os.networkInterfaces();
 		var addrs = [];
 		for (var key in ifaces) {
-			addrs = addrs.concat( addrs, ifaces[key] );
+			if (ifaces[key] && ifaces[key].length) {
+				Array.from(ifaces[key]).forEach( function(item) { addrs.push(item); } );
+			}
 		}
 		
 		var iaddrs = Tools.findObjects( addrs, { family: 'IPv4', internal: false } );
