@@ -69,7 +69,7 @@ var Config = module.exports = Class.create({
 		// merge in cmdline args (--key value)
 		var args = this.args = new Args();
 		for (var key in args.get()) {
-			this.config[key] = args.get(key);
+			this.setPath(key, args.get(key));
 		}
 	},
 	
@@ -244,6 +244,61 @@ var Config = module.exports = Class.create({
 			self.ip = addresses ? addresses[0] : '127.0.0.1';
 			callback();
 		} );
+	},
+	
+	setPath: function(path, value) {
+		// set path using dir/slash/syntax or dot.path.syntax
+		// preserve dots and slashes if escaped
+		var parts = path.replace(/\\\./g, '__PXDOT__').replace(/\\\//g, '__PXSLASH__').split(/[\.\/]/).map( function(elem) {
+			return elem.replace(/__PXDOT__/g, '.').replace(/__PXSLASH__/g, '/');
+		} );
+		
+		var key = parts.pop();
+		var target = this.config;
+		
+		// traverse path
+		while (parts.length) {
+			var part = parts.shift();
+			if (part) {
+				if (!(part in target)) {
+					// auto-create nodes
+					target[part] = {};
+				}
+				if (typeof(target[part]) != 'object') {
+					// path runs into non-object
+					return false;
+				}
+				target = target[part];
+			}
+		}
+		
+		target[key] = value;
+		return true;
+	},
+	
+	getPath: function(path) {
+		// get path using dir/slash/syntax or dot.path.syntax
+		// preserve dots and slashes if escaped
+		var parts = path.replace(/\\\./g, '__PXDOT__').replace(/\\\//g, '__PXSLASH__').split(/[\.\/]/).map( function(elem) {
+			return elem.replace(/__PXDOT__/g, '.').replace(/__PXSLASH__/g, '/');
+		} );
+		
+		var key = parts.pop();
+		var target = this.config;
+		
+		// traverse path
+		while (parts.length) {
+			var part = parts.shift();
+			if (part) {
+				if (typeof(target[part]) != 'object') {
+					// path runs into non-object
+					return undefined;
+				}
+				target = target[part];
+			}
+		}
+		
+		return target[key];
 	}
 	
 });
