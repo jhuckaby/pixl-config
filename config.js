@@ -117,7 +117,7 @@ var Config = module.exports = Class.create({
 					
 					// re-merge in cli args
 					for (var key in self.args.get()) {
-						self.config[key] = self.args.get(key);
+						self.setPath(key, self.args.get(key));
 					}
 					
 					// emit event for listeners
