@@ -39,7 +39,7 @@ var Config = module.exports = Class.create({
 		
 		this.subs = {};
 		
-		if (watch && !isa_sub) {
+		if (this.configFile && watch && !isa_sub) {
 			if (typeof(watch) == 'number') this.freq = watch;
 			if (this.config.check_config_freq_ms) this.freq = this.config.check_config_freq_ms;
 			this.monitor();
