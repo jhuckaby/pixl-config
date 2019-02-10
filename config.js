@@ -1,6 +1,6 @@
 // JSON Server Configuration System
 // Loads config file and command-line arguments
-// Copyright (c) 2014 Joseph Huckaby
+// Copyright (c) 2014 - 2019 Joseph Huckaby
 // Released under the MIT License
 
 var fs = require("fs");
@@ -26,6 +26,8 @@ var Config = module.exports = Class.create({
 	
 	__construct: function(thingy, watch, isa_sub) {
 		// class constructor
+		this.subs = {};
+		
 		if (thingy) {
 			if (typeof(thingy) == 'string') this.configFile = thingy;
 			else {
@@ -33,17 +35,25 @@ var Config = module.exports = Class.create({
 				this.configFile = "";
 			}
 		}
+		else return; // manual setup
+		
+		if (!isa_sub) {
+			this.args = new Args();
+		}
 		
 		if (this.configFile) this.load();
 		else if (!isa_sub) this.loadArgs();
-		
-		this.subs = {};
 		
 		if (this.configFile && watch && !isa_sub) {
 			if (typeof(watch) == 'number') this.freq = watch;
 			if (this.config.check_config_freq_ms) this.freq = this.config.check_config_freq_ms;
 			this.monitor();
 		}
+	},
+	
+	parse: function(text) {
+		// default JSON parser (client can override)
+		return JSON.parse(text);
 	},
 	
 	load: function() {
@@ -54,8 +64,8 @@ var Config = module.exports = Class.create({
 		var stats = fs.statSync( this.configFile );
 		this.mod = (stats && stats.mtime) ? stats.mtime.getTime() : 0;
 		
-		var config = JSON.parse( 
-			fs.readFileSync( this.configFile, { encoding: 'utf8' } ) 
+		var config = this.parse( 
+			fs.readFileSync( this.configFile, { encoding: 'utf8' } )
 		);
 		for (var key in config) {
 			this.config[key] = config[key];
@@ -67,9 +77,10 @@ var Config = module.exports = Class.create({
 	
 	loadArgs: function() {
 		// merge in cmdline args (--key value)
-		var args = this.args = new Args();
-		for (var key in args.get()) {
-			this.setPath(key, args.get(key));
+		if (!this.args) return;
+		
+		for (var key in this.args.get()) {
+			this.setPath(key, this.args.get(key));
 		}
 	},
 	
@@ -105,7 +116,7 @@ var Config = module.exports = Class.create({
 					// now parse the JSON
 					var config = null;
 					try {
-						config = JSON.parse( data );
+						config = self.parse( data );
 					}
 					catch (err) {
 						self.emit('error', "Failed to parse config file: " + self.configFile + ": " + err);
@@ -116,8 +127,10 @@ var Config = module.exports = Class.create({
 					self.config = config;
 					
 					// re-merge in cli args
-					for (var key in self.args.get()) {
-						self.setPath(key, self.args.get(key));
+					if (self.args) {
+						for (var key in self.args.get()) {
+							self.setPath(key, self.args.get(key));
+						}
 					}
 					
 					// emit event for listeners
@@ -142,6 +155,11 @@ var Config = module.exports = Class.create({
 		
 		// also set it in this.args so a file reload won't clobber it
 		if (this.args) this.args.set(key, value);
+	},
+	
+	import: function(hash) {
+		// import all keys/values from specified hash (shallow copy)
+		Tools.mergeHashInto( this.config, hash );
 	},
 	
 	getSub: function(key) {
