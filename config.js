@@ -139,6 +139,13 @@ var Config = module.exports = Class.create({
 					// refresh subs
 					self.refreshSubs();
 					
+					// reinitialize monitor if frequency has changed
+					if (self.timer && config.check_config_freq_ms && (config.check_config_freq_ms != self.freq)) {
+						self.freq = config.check_config_freq_ms;
+						self.stop();
+						self.monitor();
+					}
+					
 				} ); // fs.readFile
 			} // mod changed
 		} ); // fs.stat
