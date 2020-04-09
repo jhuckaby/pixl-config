@@ -235,7 +235,8 @@ var Config = module.exports = Class.create({
 		var self = this;
 		
 		// try OS networkInterfaces() first
-		// find the first external IPv4 address that doesn't match 169.254.
+		// find the first external IPv4 address that doesn't match 169.254.*
+		// (and preferably not 172.* either)
 		var ifaces = os.networkInterfaces();
 		var addrs = [];
 		for (var key in ifaces) {
@@ -247,8 +248,16 @@ var Config = module.exports = Class.create({
 		var iaddrs = Tools.findObjects( addrs, { family: 'IPv4', internal: false } );
 		for (var idx = 0, len = iaddrs.length; idx < len; idx++) {
 			var addr = iaddrs[idx];
+			
+			if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/) && !addr.address.match(/^(169\.254\.|172\.)/)) {
+				// found an interface that is not 169.254.* nor 172.* so prefer that
+				this.ip = addr.address;
+				callback();
+				return;
+			}
+			
 			if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/) && !addr.address.match(/^169\.254\./)) {
-				// well that was easy
+				// found an interface that is not 169.254.* so go with that one
 				this.ip = addr.address;
 				callback();
 				return;
