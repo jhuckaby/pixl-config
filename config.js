@@ -164,6 +164,11 @@ var Config = module.exports = Class.create({
 		if (this.args) this.args.set(key, value);
 	},
 	
+	delete: function(key) {
+		// delete config key
+		delete this.config[key];
+	},
+	
 	import: function(hash) {
 		// import all keys/values from specified hash (shallow copy)
 		Tools.mergeHashInto( this.config, hash );
@@ -204,6 +209,14 @@ var Config = module.exports = Class.create({
 	
 	getHostname: function(callback) {
 		// determine server hostname
+		this.hostname = this.get('hostname');
+		if (this.hostname) {
+			// well that was easy
+			callback();
+			return;
+		}
+		
+		// try ENV vars next
 		this.hostname = (process.env['HOSTNAME'] || process.env['HOST'] || '').toLowerCase();
 		if (this.hostname) {
 			// well that was easy
@@ -234,9 +247,16 @@ var Config = module.exports = Class.create({
 		// determine server ip address
 		var self = this;
 		
-		// try OS networkInterfaces() first
+		// allow the config to override this
+		this.ip = this.get('ip');
+		if (this.ip) {
+			// well that was easy
+			callback();
+			return;
+		}
+		
+		// try OS networkInterfaces()
 		// find the first external IPv4 address that doesn't match 169.254.*
-		// (and preferably not 172.* either)
 		var ifaces = os.networkInterfaces();
 		var addrs = [];
 		for (var key in ifaces) {
