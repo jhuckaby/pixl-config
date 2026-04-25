@@ -5,7 +5,6 @@
 
 var fs = require("fs");
 var cp = require("child_process");
-var dns = require("dns");
 var os = require('os');
 
 var Class = require("pixl-class");
@@ -245,7 +244,6 @@ var Config = module.exports = Class.create({
 	
 	getIPAddress: function(callback) {
 		// determine server ip address
-		var self = this;
 		
 		// allow the config to override this
 		this.ip = this.get('ip');
@@ -256,7 +254,7 @@ var Config = module.exports = Class.create({
 		}
 		
 		// try OS networkInterfaces()
-		// find the first external IPv4 address that doesn't match 169.254.*
+		// find the first external IPv4 address that doesn't match 127.* or 169.254.*
 		var ifaces = os.networkInterfaces();
 		var addrs = [];
 		for (var key in ifaces) {
@@ -268,8 +266,8 @@ var Config = module.exports = Class.create({
 		var iaddrs = Tools.findObjects( addrs, { family: 'IPv4', internal: false } );
 		for (var idx = 0, len = iaddrs.length; idx < len; idx++) {
 			var addr = iaddrs[idx];
-			if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/) && !addr.address.match(/^169\.254\./)) {
-				// found an interface that is not 169.254.* so go with that one
+			if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/) && !addr.address.match(/^127\./) && !addr.address.match(/^169\.254\./)) {
+				// found an interface that is not 127.* or 169.254.* so go with that one
 				this.ip = addr.address;
 				callback();
 				return;
@@ -277,19 +275,15 @@ var Config = module.exports = Class.create({
 		}
 		
 		var addr = iaddrs[0];
-		if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+		if (addr && addr.address && addr.address.match(/^\d+\.\d+\.\d+\.\d+$/) && !addr.address.match(/^127\./)) {
 			// this will allow 169.254. to be chosen only after all other non-internal IPv4s are considered
 			this.ip = addr.address;
 			callback();
 			return;
 		}
 		
-		// sigh, the hard way (DNS resolve the server hostname)
-		dns.resolve4(this.hostname, function (err, addresses) {
-			// if (err) callback(err);
-			self.ip = addresses ? addresses[0] : '127.0.0.1';
-			callback();
-		} );
+		this.ip = '127.0.0.1';
+		callback();
 	},
 	
 	setPath: function(path, value) {
