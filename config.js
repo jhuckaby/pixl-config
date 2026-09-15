@@ -255,12 +255,21 @@ var Config = module.exports = Class.create({
 		
 		// try OS networkInterfaces()
 		// find the first external IPv4 address that doesn't match 127.* or 169.254.*
-		var ifaces = os.networkInterfaces();
 		var addrs = [];
-		for (var key in ifaces) {
-			if (ifaces[key] && ifaces[key].length) {
-				Array.from(ifaces[key]).forEach( function(item) { addrs.push(item); } );
+		
+		// os.networkInterfaces can throw on Windows, so wrap in try/catch
+		try {
+			var ifaces = os.networkInterfaces();
+			for (var key in ifaces) {
+				if (ifaces[key] && ifaces[key].length) {
+					Array.from(ifaces[key]).forEach( function(item) { addrs.push(item); } );
+				}
 			}
+		}
+		catch (err) {
+			this.ip = '127.0.0.1';
+			callback();
+			return;
 		}
 		
 		var iaddrs = Tools.findObjects( addrs, { family: 'IPv4', internal: false } );
