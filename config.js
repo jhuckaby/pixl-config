@@ -52,7 +52,7 @@ var Config = module.exports = Class.create({
 	
 	parse: function(text) {
 		// default JSON parser (client can override)
-		return JSON.parse(text);
+		return Tools.sjson.parse(text);
 	},
 	
 	load: function() {
